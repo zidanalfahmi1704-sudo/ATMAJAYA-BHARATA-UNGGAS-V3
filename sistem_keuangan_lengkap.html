@@ -1,0 +1,1416 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ATMAJAYA BHARATA UNGGAS - Sistem Keuangan Jual Beli Ayam V2.1</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js for Financial Charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS for Exporting to Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- html2pdf.js for Invoice PDF Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#ecfdf5',
+                            100: '#d1fae5',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                            800: '#065f46',
+                            900: '#064e3b',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .modal-scrollbar::-webkit-scrollbar { width: 4px; }
+        .modal-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .modal-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        
+        /* CSS Khusus PDF Rendering agar rapi */
+        #pdfPrintContainer {
+            width: 800px;
+            background-color: white;
+            color: black;
+            padding: 40px;
+            font-family: Arial, sans-serif;
+        }
+        
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            body { background: white !important; }
+        }
+    </style>
+</head>
+<body class="h-full text-slate-800 antialiased bg-slate-50 flex flex-col overflow-hidden">
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="fixed top-5 right-5 z-[100] flex flex-col gap-3 pointer-events-none"></div>
+
+    <!-- Universal Modal Overlay -->
+    <div id="modalOverlay" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] hidden flex items-center justify-center p-4 overflow-y-auto">
+        <div id="modalContent" class="bg-white rounded-3xl shadow-2xl max-w-5xl w-full p-6 relative transform transition-all duration-200 scale-95 opacity-0 my-auto">
+            <!-- Modal Content Injected via JS -->
+        </div>
+    </div>
+    
+    <!-- Confirm Modal Overlay -->
+    <div id="confirmOverlay" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[70] hidden flex items-center justify-center p-4">
+        <div id="confirmContent" class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 relative transform transition-all duration-200 scale-95 opacity-0 text-center">
+            <!-- Content injected -->
+        </div>
+    </div>
+
+    <!-- Foto Modal Overlay -->
+    <div id="fotoOverlay" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-[80] hidden flex items-center justify-center p-4">
+        <div class="relative max-w-3xl w-full flex flex-col items-center">
+            <button onclick="closeFotoModal()" class="absolute -top-10 right-0 text-white hover:text-red-500 text-2xl"><i class="fa-solid fa-xmark"></i></button>
+            <img id="fotoEnlarged" src="" class="max-h-[85vh] object-contain rounded-lg shadow-2xl border-4 border-white/10" alt="Nota">
+        </div>
+    </div>
+
+    <!-- Hidden Container for PDF Rendering (Absolute off-screen) -->
+    <div id="pdfWrapper" class="absolute -left-[9999px] top-0 overflow-hidden">
+        <div id="pdfPrintContainer"></div>
+    </div>
+
+    <!-- LOGIN SCREEN -->
+    <div id="loginScreen" class="min-h-screen w-full flex items-center justify-center bg-slate-900 bg-cover bg-center relative p-4" style="background-image: radial-gradient(circle at top right, #059669, #0f172a 60%);">
+        <div class="absolute inset-0 bg-black/40"></div>
+        
+        <div class="relative z-10 w-full max-w-md bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl p-8 border border-white/20">
+            <div class="text-center mb-8">
+                <div class="w-20 h-20 bg-emerald-600 rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-emerald-600/30 mb-4 transform -rotate-3 hover:rotate-0 transition-transform">
+                    <i class="fa-solid fa-drumstick-bite text-3xl text-white"></i>
+                </div>
+                <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">ATMAJAYA BHARATA</h1>
+                <p class="text-xs font-semibold text-emerald-600 tracking-widest uppercase mt-1">Sistem Keuangan v2.1</p>
+            </div>
+
+            <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-5">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">Username</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400"><i class="fa-solid fa-user"></i></span>
+                        <input type="text" id="loginUsername" required class="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm font-medium outline-none transition" placeholder="Username Anda">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">Password</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400"><i class="fa-solid fa-lock"></i></span>
+                        <input type="password" id="loginPassword" required class="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm font-medium outline-none transition" placeholder="••••••••">
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/30 transition transform active:scale-95 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-right-to-bracket"></i> Masuk Ke Sistem
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MAIN DASHBOARD APP SCREEN -->
+    <div id="appScreen" class="hidden min-h-screen flex flex-col md:flex-row w-full flex-1">
+        
+        <!-- SIDEBAR NAVIGATION -->
+        <aside id="sidebar" class="w-full md:w-64 bg-slate-900 text-slate-300 flex-shrink-0 flex flex-col justify-between shadow-xl z-30 transition-all duration-300 absolute md:relative h-full transform -translate-x-full md:translate-x-0">
+            <div class="flex flex-col h-full overflow-hidden">
+                <div class="p-5 border-b border-slate-800 flex items-center justify-between flex-shrink-0">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center text-white shadow-md shadow-emerald-600/40">
+                            <i class="fa-solid fa-drumstick-bite text-xl"></i>
+                        </div>
+                        <div>
+                            <h2 class="font-extrabold text-white text-xs tracking-tight leading-tight">ATMAJAYA BHARATA</h2>
+                            <p class="text-[10px] text-emerald-400 font-semibold tracking-wider uppercase">UNGGAS PERKASA</p>
+                        </div>
+                    </div>
+                    <button class="md:hidden text-slate-400 hover:text-white" onclick="toggleMobileNav()">
+                        <i class="fa-solid fa-xmark text-xl"></i>
+                    </button>
+                </div>
+
+                <div class="p-4 mx-3 my-3 bg-slate-800/80 rounded-2xl border border-slate-700/50 flex items-center justify-between flex-shrink-0">
+                    <div class="flex items-center gap-3 overflow-hidden">
+                        <div class="w-9 h-9 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-sm flex-shrink-0">
+                            <i class="fa-solid fa-user-gear"></i>
+                        </div>
+                        <div class="overflow-hidden">
+                            <p id="navUserName" class="text-xs font-bold text-white truncate">User Name</p>
+                            <span id="navUserBadge" class="inline-block text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-900/60 text-emerald-300 border border-emerald-500/30 mt-0.5">Role</span>
+                        </div>
+                    </div>
+                </div>
+
+                <nav id="sidebarNav" class="px-3 py-2 space-y-1 flex-1 overflow-y-auto custom-scrollbar">
+                    <!-- Dynamic Nav Items -->
+                </nav>
+
+                <div class="p-4 border-t border-slate-800 space-y-2 flex-shrink-0">
+                    <button onclick="logout()" class="w-full py-2.5 bg-red-600/20 hover:bg-red-600 text-red-300 hover:text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 border border-red-500/30">
+                        <i class="fa-solid fa-right-from-bracket"></i> Keluar (Logout)
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT AREA -->
+        <main class="flex-1 flex flex-col min-w-0 bg-slate-50 overflow-hidden h-screen">
+            <!-- Top App Bar -->
+            <header class="bg-white border-b border-slate-200 px-4 sm:px-6 py-4 flex items-center justify-between gap-4 z-20 shadow-sm flex-shrink-0">
+                <div class="flex items-center gap-3">
+                    <button class="md:hidden text-slate-700 p-2 rounded-lg bg-slate-100 hover:bg-slate-200 transition" onclick="toggleMobileNav()">
+                        <i class="fa-solid fa-bars text-lg"></i>
+                    </button>
+                    <div>
+                        <h1 id="pageTitle" class="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">Dashboard</h1>
+                        <p id="pageSubtitle" class="text-[10px] sm:text-xs text-slate-500 mt-0.5 hidden sm:block">Sistem Informasi Keuangan</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-4">
+                    <div class="text-right hidden lg:block">
+                        <div id="liveClock" class="text-xs font-bold text-slate-800"></div>
+                        <div class="text-[11px] text-slate-500">Kediri - Jawa Timur</div>
+                    </div>
+                    <div class="h-8 w-px bg-slate-200 hidden lg:block"></div>
+                    <button id="btnQuickAdd" onclick="quickActionModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 sm:py-2.5 px-3 sm:px-4 rounded-xl shadow-md flex items-center gap-2 transition">
+                        <i class="fa-solid fa-circle-plus"></i> <span class="hidden sm:inline">Transaksi Cepat</span>
+                    </button>
+                </div>
+            </header>
+
+            <div id="mainContainer" class="p-4 sm:p-6 space-y-6 flex-1 overflow-y-auto custom-scrollbar">
+                <!-- Views loaded dynamically -->
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const DEFAULT_USERS = [
+            { id: 1, name: "Pak Atmajaya", username: "admin", password: "admin123", role: "admin", label: "Pemilik / Admin Utama" },
+            { id: 2, name: "Kasir", username: "kasir", password: "kasir123", role: "admin", label: "Kasir Pembayaran" },
+            { id: 3, name: "Staff Biaya", username: "staff", password: "staff123", role: "staff", label: "Staff Operasional" }
+        ];
+
+        const DEFAULT_MASTERS = {
+            pemasok: [
+                { id: "SUP-01", nama: "PT Charoen Pokphand Jaya", telepon: "081234567890", alamat: "Kandang Subang" },
+                { id: "SUP-02", nama: "PT Japfa Comfeed", telepon: "081987654321", alamat: "Farm Kediri" }
+            ],
+            konsumen: [
+                { id: "CUST-01", nama: "Toko Ayam Broiler Jaya", telepon: "08122334455", alamat: "Pasar Pahing" },
+                { id: "CUST-02", nama: "Kemitraan Resto", telepon: "08567890123", alamat: "Malang" }
+            ],
+            sopir: [
+                { id: "DRV-01", nama: "Budi Santoso", telepon: "081233334444" },
+                { id: "DRV-02", nama: "Joko Susilo", telepon: "085788889999" }
+            ],
+            nopol: [
+                { id: "NPL-01", nopol: "AG 8912 UT", jenis: "Truk Colt Diesel Box", sopirDefault: "Budi Santoso" },
+                { id: "NPL-02", nopol: "AG 9043 AB", jenis: "Truk Engkel Keranjang", sopirDefault: "Joko Susilo" }
+            ]
+        };
+
+        let currentUser = null;
+        let usersData = JSON.parse(localStorage.getItem('atma_users_v2_1')) || DEFAULT_USERS;
+        let masterData = JSON.parse(localStorage.getItem('atma_masters_v2_1')) || DEFAULT_MASTERS;
+        let purchasesData = JSON.parse(localStorage.getItem('atma_purchases_v2_1')) || [];
+        let salesData = JSON.parse(localStorage.getItem('atma_sales_v2_1')) || [];
+        let expensesData = JSON.parse(localStorage.getItem('atma_expenses_v2_1')) || [];
+        let purchasePayments = JSON.parse(localStorage.getItem('atma_purchase_payments_v2_1')) || [];
+        let salesPayments = JSON.parse(localStorage.getItem('atma_sales_payments_v2_1')) || [];
+
+        let activeTab = 'dashboard';
+        let currentFilterMonth = new Date().getMonth() + 1;
+        let currentFilterYear = new Date().getFullYear();
+        let currentFilterDate = '';
+        let tempTransactionItems = [];
+        let currentFotoBiayaBase64 = ''; 
+
+        function initSampleDataV2() {
+            if (purchasesData.length === 0) {
+                const prevDate = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+                purchasesData = [{
+                    id: "BELI-20260901", tanggal: prevDate, pemasok: "PT Charoen Pokphand Jaya", totalBeli: 85975000, totalOperasional: 950000, totalTonase: 3950,
+                    items: [
+                        { nopol: "AG 8912 UT", sopir: "Budi Santoso", harga: 21500, tonase: 1850, subtotal: 39775000, operasional: 450000 },
+                        { nopol: "AG 9043 AB", sopir: "Joko Susilo", harga: 22000, tonase: 2100, subtotal: 46200000, operasional: 500000 }
+                    ]
+                }];
+                localStorage.setItem('atma_purchases_v2_1', JSON.stringify(purchasesData));
+            }
+
+            if (salesData.length === 0) {
+                const prevDate = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+                salesData = [{
+                    id: "INV-20260901", tanggal: prevDate, konsumen: "Toko Ayam Broiler Jaya", totalJual: 77400000, totalTonase: 3000,
+                    items: [
+                        { nopol: "AG 8912 UT", sopir: "Budi Santoso", harga: 25500, tonase: 1200, subtotal: 30600000 },
+                        { nopol: "AG 9043 AB", sopir: "Joko Susilo", harga: 26000, tonase: 1800, subtotal: 46800000 }
+                    ]
+                }];
+                localStorage.setItem('atma_sales_v2_1', JSON.stringify(salesData));
+            }
+        }
+
+        initSampleDataV2();
+
+        function saveData() {
+            localStorage.setItem('atma_users_v2_1', JSON.stringify(usersData));
+            localStorage.setItem('atma_masters_v2_1', JSON.stringify(masterData));
+            localStorage.setItem('atma_purchases_v2_1', JSON.stringify(purchasesData));
+            localStorage.setItem('atma_sales_v2_1', JSON.stringify(salesData));
+            localStorage.setItem('atma_expenses_v2_1', JSON.stringify(expensesData));
+            localStorage.setItem('atma_purchase_payments_v2_1', JSON.stringify(purchasePayments));
+            localStorage.setItem('atma_sales_payments_v2_1', JSON.stringify(salesPayments));
+        }
+
+        const formatRp = (num) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(num || 0);
+        const formatKg = (num) => new Intl.NumberFormat('id-ID').format(num || 0) + ' kg';
+        const formatTanggal = (dateStr) => {
+            if(!dateStr) return '';
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+        };
+        const generateId = (prefix) => `${prefix}-${Date.now().toString().slice(-6)}`;
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            const bgClass = type === 'success' ? 'bg-emerald-600' : type === 'danger' ? 'bg-red-600' : 'bg-slate-800';
+            const icon = type === 'success' ? 'fa-circle-check' : type === 'danger' ? 'fa-triangle-exclamation' : 'fa-circle-info';
+
+            toast.className = `${bgClass} text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 transition duration-300 pointer-events-auto text-xs font-semibold transform translate-y-2 opacity-0`;
+            toast.innerHTML = `<i class="fa-solid ${icon} text-lg"></i> <span>${message}</span>`;
+            
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.remove('translate-y-2', 'opacity-0'), 50);
+            setTimeout(() => { toast.classList.add('opacity-0', 'translate-y-2'); setTimeout(() => toast.remove(), 300); }, 3500);
+        }
+
+        function showModal(htmlContent) {
+            const overlay = document.getElementById('modalOverlay');
+            const content = document.getElementById('modalContent');
+            content.innerHTML = htmlContent;
+            overlay.classList.remove('hidden');
+            setTimeout(() => { content.classList.remove('scale-95', 'opacity-0'); content.classList.add('scale-100', 'opacity-100'); }, 10);
+        }
+
+        function closeModal() {
+            const overlay = document.getElementById('modalOverlay');
+            const content = document.getElementById('modalContent');
+            content.classList.remove('scale-100', 'opacity-100');
+            content.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => { overlay.classList.add('hidden'); content.innerHTML = ''; }, 200);
+        }
+
+        function confirmAction(title, message, confirmCallbackStr, isDanger = true) {
+            const overlay = document.getElementById('confirmOverlay');
+            const content = document.getElementById('confirmContent');
+            const btnClass = isDanger ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700';
+            const iconClass = isDanger ? 'text-red-500 fa-triangle-exclamation' : 'text-emerald-500 fa-circle-question';
+
+            content.innerHTML = `
+                <div class="mb-4">
+                    <i class="fa-solid ${iconClass} text-5xl mb-2"></i><h3 class="text-lg font-bold text-slate-900">${title}</h3><p class="text-sm text-slate-500 mt-2">${message}</p>
+                </div>
+                <div class="flex gap-3 justify-center mt-6">
+                    <button onclick="closeConfirm()" class="px-5 py-2.5 bg-slate-200 text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-300 w-1/2">Batal</button>
+                    <button onclick="${confirmCallbackStr}; closeConfirm();" class="px-5 py-2.5 ${btnClass} text-white text-xs font-bold rounded-xl w-1/2">Ya, Lanjutkan</button>
+                </div>`;
+            overlay.classList.remove('hidden');
+            setTimeout(() => { content.classList.remove('scale-95', 'opacity-0'); content.classList.add('scale-100', 'opacity-100'); }, 10);
+        }
+
+        function closeConfirm() {
+            const overlay = document.getElementById('confirmOverlay');
+            const content = document.getElementById('confirmContent');
+            content.classList.remove('scale-100', 'opacity-100');
+            content.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => overlay.classList.add('hidden'), 200);
+        }
+
+        function exportTableToExcel(tableID, filename = '') {
+            let tableSelect = document.getElementById(tableID);
+            let cloneTable = tableSelect.cloneNode(true);
+            let ths = cloneTable.querySelectorAll('th.no-export');
+            let tds = cloneTable.querySelectorAll('td.no-export');
+            ths.forEach(el => el.remove()); tds.forEach(el => el.remove());
+            let wb = XLSX.utils.table_to_book(cloneTable, {sheet:"Sheet1"});
+            filename = filename ? filename + '.xlsx' : 'ExportData.xlsx';
+            XLSX.writeFile(wb, filename);
+        }
+
+        function getMonthYearFilterHTML(onChangeFnName, includeDate = true) {
+            const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+            const monthOpts = months.map((m, i) => `<option value="${i+1}" ${currentFilterMonth === i+1 ? 'selected' : ''}>${m}</option>`).join('');
+            
+            const currentYear = new Date().getFullYear();
+            let yearOpts = '';
+            for(let y = currentYear - 2; y <= currentYear + 1; y++) {
+                yearOpts += `<option value="${y}" ${currentFilterYear === y ? 'selected' : ''}>${y}</option>`;
+            }
+
+            let dateFilterHTML = '';
+            if (includeDate) {
+                dateFilterHTML = `
+                    <div class="flex-1 min-w-[130px]">
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Tgl Spesifik</label>
+                        <input type="date" id="filterDate" value="${currentFilterDate}" onchange="updateFilterState(); ${onChangeFnName}()" class="w-full px-3 py-2 border rounded-xl text-xs font-medium focus:ring-emerald-500 outline-none">
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="flex flex-wrap gap-2 items-end">
+                    ${dateFilterHTML}
+                    <div class="flex-1 min-w-[120px]">
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Bulan</label>
+                        <select id="filterMonth" onchange="updateFilterState(); ${onChangeFnName}()" class="w-full px-3 py-2 border rounded-xl text-xs font-medium focus:ring-emerald-500 outline-none">
+                            <option value="all">-- Semua Bulan --</option>
+                            ${monthOpts}
+                        </select>
+                    </div>
+                    <div class="flex-1 min-w-[100px]">
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Tahun</label>
+                        <select id="filterYear" onchange="updateFilterState(); ${onChangeFnName}()" class="w-full px-3 py-2 border rounded-xl text-xs font-medium focus:ring-emerald-500 outline-none">
+                            ${yearOpts}
+                        </select>
+                    </div>
+                    ${includeDate ? `
+                    <div class="flex-none">
+                        <button onclick="clearFilterDate(); ${onChangeFnName}()" class="px-3 py-2 border border-slate-300 rounded-xl bg-white hover:bg-slate-100 text-slate-500 text-xs font-bold" title="Hapus Filter Tanggal Spesifik"><i class="fa-solid fa-rotate-left"></i></button>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        function updateFilterState() {
+            const m = document.getElementById('filterMonth').value;
+            const y = document.getElementById('filterYear').value;
+            const dEl = document.getElementById('filterDate');
+            currentFilterDate = dEl ? dEl.value : '';
+            
+            currentFilterMonth = m === 'all' ? 'all' : parseInt(m);
+            currentFilterYear = parseInt(y);
+        }
+
+        function clearFilterDate() {
+            const dEl = document.getElementById('filterDate');
+            if(dEl) { dEl.value = ''; currentFilterDate = ''; }
+        }
+
+        function isDateInFilter(dateString) {
+            if(!dateString) return false;
+            if (currentFilterDate && currentFilterDate !== '') return dateString === currentFilterDate;
+            const d = new Date(dateString);
+            const m = d.getMonth() + 1;
+            const y = d.getFullYear();
+            if (currentFilterMonth === 'all') return y === currentFilterYear;
+            return m === currentFilterMonth && y === currentFilterYear;
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const uInput = document.getElementById('loginUsername').value.trim();
+            const pInput = document.getElementById('loginPassword').value.trim();
+            const foundUser = usersData.find(u => u.username.toLowerCase() === uInput.toLowerCase() && u.password === pInput);
+
+            if (foundUser) {
+                currentUser = foundUser;
+                showToast(`Login Berhasil. Selamat datang, ${currentUser.name}!`, 'success');
+                renderApp();
+            } else {
+                showToast('Username atau password salah!', 'danger');
+            }
+        }
+
+        function logout() {
+            currentUser = null;
+            document.getElementById('appScreen').classList.add('hidden');
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('loginForm').reset();
+            showToast('Anda telah keluar dari sistem', 'info');
+        }
+
+        function renderApp() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('appScreen').classList.remove('hidden');
+
+            document.getElementById('navUserName').innerText = currentUser.name;
+            document.getElementById('navUserBadge').innerText = currentUser.role === 'admin' ? 'ADMIN' : 'STAFF';
+            document.getElementById('navUserBadge').className = currentUser.role === 'admin' ? 
+                'inline-block text-[10px] px-2 py-0.5 rounded-full font-bold bg-purple-900/60 text-purple-300 border border-purple-500/30 mt-0.5' : 
+                'inline-block text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-900/60 text-emerald-300 border border-emerald-500/30 mt-0.5';
+
+            activeTab = currentUser.role === 'staff' ? 'biaya' : 'dashboard';
+            renderSidebarNav();
+            switchTab(activeTab);
+            startLiveClock();
+        }
+
+        function renderSidebarNav() {
+            const nav = document.getElementById('sidebarNav');
+            let items = currentUser.role === 'staff' ? [{ id: 'biaya', icon: 'fa-receipt', label: 'Biaya Operasional' }] : [
+                { id: 'dashboard', icon: 'fa-chart-pie', label: 'Dashboard Utama' },
+                { id: 'pembelian', icon: 'fa-cart-shopping', label: 'Beli Pemasok' },
+                { id: 'penjualan', icon: 'fa-file-invoice-dollar', label: 'Jual Konsumen' },
+                { id: 'biaya', icon: 'fa-receipt', label: 'Biaya Operasional' },
+                { id: 'bayar_pembelian', icon: 'fa-hand-holding-dollar', label: 'Hutang Pemasok' },
+                { id: 'bayar_penjualan', icon: 'fa-money-bill-transfer', label: 'Piutang Konsumen' },
+                { id: 'master', icon: 'fa-database', label: 'Master Data' }
+            ];
+
+            nav.innerHTML = items.map(item => `
+                <button onclick="switchTab('${item.id}'); if(window.innerWidth < 768) toggleMobileNav();" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-xs font-bold transition ${activeTab === item.id ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:text-white hover:bg-slate-800'}">
+                    <i class="fa-solid ${item.icon} w-5 text-center text-sm"></i><span>${item.label}</span>
+                </button>
+            `).join('');
+        }
+
+        function switchTab(tabId) {
+            if (currentUser.role === 'staff' && tabId !== 'biaya') tabId = 'biaya';
+            activeTab = tabId;
+            renderSidebarNav();
+            const container = document.getElementById('mainContainer');
+            const pt = document.getElementById('pageTitle');
+
+            switch (tabId) {
+                case 'dashboard': pt.innerText = "Dashboard Keuangan"; renderDashboard(container); break;
+                case 'pembelian': pt.innerText = "Data Pembelian"; renderPembelianView(container); break;
+                case 'penjualan': pt.innerText = "Data Penjualan"; renderPenjualanView(container); break;
+                case 'biaya': pt.innerText = "Biaya Operasional"; renderBiayaView(container); break;
+                case 'bayar_pembelian': pt.innerText = "Pelunasan Hutang Pemasok"; renderBayarPembelianView(container); break;
+                case 'bayar_penjualan': pt.innerText = "Penerimaan Piutang Konsumen"; renderBayarPenjualanView(container); break;
+                case 'master': pt.innerText = "Database Master"; renderMasterView(container); break;
+            }
+        }
+
+        function toggleMobileNav() {
+            const sidebar = document.getElementById('sidebar');
+            if(sidebar.classList.contains('-translate-x-full')) sidebar.classList.remove('-translate-x-full');
+            else sidebar.classList.add('-translate-x-full');
+        }
+
+        function startLiveClock() {
+            setInterval(() => {
+                const now = new Date();
+                const clock = document.getElementById('liveClock');
+                if (clock) clock.innerText = now.toLocaleDateString('id-ID', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }) + ' ' + now.toLocaleTimeString('id-ID');
+            }, 1000);
+        }
+
+        function quickActionModal() {
+            showModal(`
+                <div>
+                    <h3 class="text-lg font-bold text-slate-900 mb-4"><i class="fa-solid fa-bolt text-amber-500 mr-2"></i> Transaksi Cepat</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <button onclick="closeModal(); ${currentUser.role === 'admin' ? 'openPembelianModal()' : 'showToast(\'Akses Ditolak\',\'danger\')'}" class="p-4 rounded-2xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-left transition ${currentUser.role !== 'admin' ? 'opacity-50 cursor-not-allowed' : ''}">
+                            <i class="fa-solid fa-cart-shopping text-3xl text-emerald-600 mb-2"></i>
+                            <div class="font-bold text-sm text-slate-800">Beli (Pemasok)</div>
+                        </button>
+                        <button onclick="closeModal(); ${currentUser.role === 'admin' ? 'openPenjualanModal()' : 'showToast(\'Akses Ditolak\',\'danger\')'}" class="p-4 rounded-2xl border border-blue-200 bg-blue-50 hover:bg-blue-100 text-left transition ${currentUser.role !== 'admin' ? 'opacity-50 cursor-not-allowed' : ''}">
+                            <i class="fa-solid fa-file-invoice-dollar text-3xl text-blue-600 mb-2"></i>
+                            <div class="font-bold text-sm text-slate-800">Jual (Konsumen)</div>
+                        </button>
+                        <button onclick="closeModal(); openBiayaModal();" class="p-4 rounded-2xl border border-red-200 bg-red-50 hover:bg-red-100 text-left transition">
+                            <i class="fa-solid fa-receipt text-3xl text-red-600 mb-2"></i>
+                            <div class="font-bold text-sm text-slate-800">Biaya Ops</div>
+                        </button>
+                    </div>
+                </div>
+            `);
+        }
+
+        // ================= DASHBOARD =================
+        function renderDashboardHelper() { renderDashboard(document.getElementById('mainContainer')); }
+        
+        function renderDashboard(container) {
+            const filteredPurchases = purchasesData.filter(p => isDateInFilter(p.tanggal));
+            const filteredSales = salesData.filter(s => isDateInFilter(s.tanggal));
+            const filteredExpenses = expensesData.filter(e => isDateInFilter(e.tanggal));
+
+            const totalPembelian = filteredPurchases.reduce((acc, p) => acc + (p.totalBeli || 0), 0);
+            const totalPembelianKg = filteredPurchases.reduce((acc, p) => acc + (p.totalTonase || 0), 0);
+            const totalPenjualan = filteredSales.reduce((acc, s) => acc + (s.totalJual || 0), 0);
+            const totalPenjualanKg = filteredSales.reduce((acc, s) => acc + (s.totalTonase || 0), 0);
+            const totalBiaya = filteredExpenses.reduce((acc, e) => acc + (e.total || 0), 0);
+
+            const labaKotor = totalPenjualan - totalPembelian;
+            const labaBersih = labaKotor - totalBiaya;
+
+            // Global Hutang Piutang
+            const allTotalPembelian = purchasesData.reduce((acc, p) => acc + (p.totalBeli || 0), 0);
+            const paidPurchases = purchasePayments.reduce((acc, pay) => acc + (pay.jumlah || 0), 0);
+            const sisaHutang = Math.max(0, allTotalPembelian - paidPurchases);
+            
+            const allTotalPenjualan = salesData.reduce((acc, s) => acc + (s.totalJual || 0), 0);
+            const paidSales = salesPayments.reduce((acc, pay) => acc + (pay.jumlah || 0), 0);
+            const sisaPiutang = Math.max(0, allTotalPenjualan - paidSales);
+
+            container.innerHTML = `
+                <div class="flex flex-col md:flex-row justify-end mb-4 bg-white p-3 rounded-2xl shadow-sm border border-slate-200">
+                    ${getMonthYearFilterHTML('renderDashboardHelper', true)}
+                </div>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                        <p class="text-[11px] font-bold text-slate-500 uppercase">Jual (Periode Ini)</p>
+                        <h3 class="text-xl font-extrabold text-slate-900 mt-1">${formatRp(totalPenjualan)}</h3>
+                        <p class="text-xs text-slate-500 mt-1"><i class="fa-solid fa-weight-hanging text-emerald-600 mr-1"></i>${formatKg(totalPenjualanKg)}</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                        <p class="text-[11px] font-bold text-slate-500 uppercase">Beli (Periode Ini)</p>
+                        <h3 class="text-xl font-extrabold text-slate-900 mt-1">${formatRp(totalPembelian)}</h3>
+                        <p class="text-xs text-slate-500 mt-1"><i class="fa-solid fa-truck-ramps text-amber-600 mr-1"></i>${formatKg(totalPembelianKg)}</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                        <p class="text-[11px] font-bold text-slate-500 uppercase">Biaya (Periode Ini)</p>
+                        <h3 class="text-xl font-extrabold text-red-600 mt-1">${formatRp(totalBiaya)}</h3>
+                        <p class="text-xs text-slate-500 mt-1"><i class="fa-solid fa-receipt text-red-500 mr-1"></i>${filteredExpenses.length} Trx</p>
+                    </div>
+                    <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-sm text-white">
+                        <p class="text-[11px] font-bold text-emerald-400 uppercase">Laba Bersih (Periode Ini)</p>
+                        <h3 class="text-xl font-extrabold text-white mt-1">${formatRp(labaBersih)}</h3>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 flex justify-between items-center shadow-sm">
+                        <div><p class="text-xs font-bold text-slate-500 uppercase">Total Piutang Konsumen (Global)</p><h4 class="text-lg font-extrabold text-slate-900 mt-1">${formatRp(sisaPiutang)}</h4></div>
+                        <i class="fa-solid fa-money-bill-trend-up text-3xl text-blue-200"></i>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 flex justify-between items-center shadow-sm">
+                        <div><p class="text-xs font-bold text-slate-500 uppercase">Total Hutang Pemasok (Global)</p><h4 class="text-lg font-extrabold text-slate-900 mt-1">${formatRp(sisaHutang)}</h4></div>
+                        <i class="fa-solid fa-hand-holding-dollar text-3xl text-orange-200"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                    <h4 class="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2"><i class="fa-solid fa-chart-line text-emerald-600"></i> Grafik Periode Terpilih</h4>
+                    <div class="h-64 relative w-full"><canvas id="dashboardChart"></canvas></div>
+                </div>
+            `;
+
+            setTimeout(() => {
+                const ctx = document.getElementById('dashboardChart');
+                if (ctx) {
+                    new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: ['Penjualan', 'Pembelian', 'Laba Kotor', 'Biaya Ops', 'Laba Bersih'],
+                            datasets: [{
+                                label: 'Nominal (Rp)', data: [totalPenjualan, totalPembelian, labaKotor, totalBiaya, labaBersih],
+                                backgroundColor: ['#10b981', '#f59e0b', '#3b82f6', '#ef4444', '#059669'], borderRadius: 6
+                            }]
+                        },
+                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+                                   scales: { y: { ticks: { callback: v => 'Rp ' + (v / 1000000).toFixed(0) + 'Jt' } } } }
+                    });
+                }
+            }, 100);
+        }
+
+        // ================= MASTER DATA =================
+        function renderMasterView(container) {
+            container.innerHTML = `
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-6">
+                    <div class="flex gap-4 border-b border-slate-200 pb-2 overflow-x-auto custom-scrollbar">
+                        <button onclick="changeMasterTab('users')" id="tab_users" class="px-4 py-2 text-sm font-bold border-b-2 border-emerald-600 text-emerald-700 whitespace-nowrap">Manajemen User</button>
+                        <button onclick="changeMasterTab('pemasok')" id="tab_pemasok" class="px-4 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap">Pemasok</button>
+                        <button onclick="changeMasterTab('konsumen')" id="tab_konsumen" class="px-4 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap">Konsumen</button>
+                        <button onclick="changeMasterTab('sopir')" id="tab_sopir" class="px-4 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap">Sopir</button>
+                        <button onclick="changeMasterTab('nopol')" id="tab_nopol" class="px-4 py-2 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 whitespace-nowrap">Armada/Nopol</button>
+                    </div>
+                    <div id="masterContentContainer"></div>
+                </div>
+            `;
+            changeMasterTab('users');
+        }
+
+        let currentMasterType = 'users';
+        function changeMasterTab(type) {
+            currentMasterType = type;
+            ['users', 'pemasok', 'konsumen', 'sopir', 'nopol'].forEach(t => {
+                const el = document.getElementById(`tab_${t}`);
+                if(el) {
+                    if(t === type) { el.classList.replace('border-transparent', 'border-emerald-600'); el.classList.replace('text-slate-500', 'text-emerald-700'); } 
+                    else { el.classList.replace('border-emerald-600', 'border-transparent'); el.classList.replace('text-emerald-700', 'text-slate-500'); }
+                }
+            });
+            renderMasterContent();
+        }
+
+        function renderMasterContent() {
+            const container = document.getElementById('masterContentContainer');
+            let data = currentMasterType === 'users' ? usersData : masterData[currentMasterType];
+            let thead = '', rows = '';
+
+            if (currentMasterType === 'users') {
+                thead = `<tr><th>Nama</th><th>Username</th><th>Password</th><th>Role</th><th class="text-right">Aksi</th></tr>`;
+                rows = data.map((d, i) => `<tr class="border-b border-slate-100 hover:bg-slate-50"><td class="py-3 px-2 font-bold">${d.name}</td><td class="py-3 px-2">${d.username}</td><td class="py-3 px-2">${d.password}</td><td class="py-3 px-2"><span class="px-2 py-1 bg-slate-200 rounded text-[10px] uppercase font-bold">${d.role}</span></td><td class="py-3 px-2 text-right"><button onclick="openMasterModal('users', ${i})" class="text-blue-600 mr-3"><i class="fa-solid fa-pen"></i></button>${d.username !== 'admin' ? `<button onclick="deleteMasterData('users', ${i})" class="text-red-600"><i class="fa-solid fa-trash"></i></button>` : ''}</td></tr>`).join('');
+            } else if (currentMasterType === 'nopol') {
+                thead = `<tr><th>Nopol</th><th>Jenis</th><th>Sopir</th><th class="text-right">Aksi</th></tr>`;
+                rows = data.map((d, i) => `<tr class="border-b border-slate-100 hover:bg-slate-50"><td class="py-3 px-2 font-bold">${d.nopol}</td><td class="py-3 px-2">${d.jenis}</td><td class="py-3 px-2">${d.sopirDefault}</td><td class="py-3 px-2 text-right"><button onclick="openMasterModal('nopol', ${i})" class="text-blue-600 mr-3"><i class="fa-solid fa-pen"></i></button><button onclick="deleteMasterData('nopol', ${i})" class="text-red-600"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('');
+            } else {
+                thead = `<tr><th>Nama/ID</th><th>Telepon</th>${currentMasterType !== 'sopir' ? '<th>Alamat</th>' : ''}<th class="text-right">Aksi</th></tr>`;
+                rows = data.map((d, i) => `<tr class="border-b border-slate-100 hover:bg-slate-50"><td class="py-3 px-2 font-bold">${d.nama} <br><span class="text-[10px] text-slate-400 font-normal">${d.id}</span></td><td class="py-3 px-2">${d.telepon}</td>${currentMasterType !== 'sopir' ? `<td class="py-3 px-2 text-xs">${d.alamat || '-'}</td>` : ''}<td class="py-3 px-2 text-right"><button onclick="openMasterModal('${currentMasterType}', ${i})" class="text-blue-600 mr-3"><i class="fa-solid fa-pen"></i></button><button onclick="deleteMasterData('${currentMasterType}', ${i})" class="text-red-600"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('');
+            }
+
+            container.innerHTML = `
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="font-bold text-slate-800 uppercase text-sm">Data ${currentMasterType}</h3>
+                    <button onclick="openMasterModal('${currentMasterType}')" class="bg-emerald-600 text-white text-xs font-bold px-3 py-2 rounded-lg hover:bg-emerald-700">+ Tambah Data</button>
+                </div>
+                <div class="overflow-x-auto custom-scrollbar">
+                    <table class="w-full text-left text-xs whitespace-nowrap"><thead class="bg-slate-100 text-slate-600 font-bold border-b">${thead}</thead><tbody>${rows || '<tr><td colspan="5" class="text-center py-4 text-slate-400">Tidak ada data</td></tr>'}</tbody></table>
+                </div>
+            `;
+        }
+
+        function openMasterModal(type, editIndex = -1) {
+            let item = editIndex >= 0 ? (type === 'users' ? usersData[editIndex] : masterData[type][editIndex]) : {};
+            let title = editIndex >= 0 ? 'Edit Data' : 'Tambah Data';
+            let formFields = '';
+            
+            if (type === 'users') {
+                formFields = `
+                    <div class="space-y-3">
+                        <div><label class="text-xs font-bold">Nama Pegawai</label><input type="text" id="m_name" value="${item.name||''}" required class="w-full border p-2 rounded-lg text-sm"></div>
+                        <div><label class="text-xs font-bold">Username</label><input type="text" id="m_user" value="${item.username||''}" required class="w-full border p-2 rounded-lg text-sm"></div>
+                        <div><label class="text-xs font-bold">Password</label><input type="text" id="m_pass" value="${item.password||''}" required class="w-full border p-2 rounded-lg text-sm"></div>
+                        <div><label class="text-xs font-bold">Role Akses</label><select id="m_role" class="w-full border p-2 rounded-lg text-sm"><option value="staff" ${item.role==='staff'?'selected':''}>STAFF (Hanya Input Biaya)</option><option value="admin" ${item.role==='admin'?'selected':''}>ADMIN (Akses Penuh)</option></select></div>
+                    </div>`;
+            } else if (type === 'nopol') {
+                const sopirOpts = masterData.sopir.map(s => `<option value="${s.nama}" ${item.sopirDefault===s.nama?'selected':''}>${s.nama}</option>`).join('');
+                formFields = `
+                    <div class="space-y-3">
+                        <div><label class="text-xs font-bold">Nopol Kendaraan</label><input type="text" id="m_nopol" value="${item.nopol||''}" required class="w-full border p-2 rounded-lg text-sm uppercase"></div>
+                        <div><label class="text-xs font-bold">Jenis Kendaraan</label><input type="text" id="m_jenis" value="${item.jenis||''}" required class="w-full border p-2 rounded-lg text-sm"></div>
+                        <div><label class="text-xs font-bold">Sopir Default</label><select id="m_sopir" class="w-full border p-2 rounded-lg text-sm"><option value="">--Pilih Sopir--</option>${sopirOpts}</select></div>
+                    </div>`;
+            } else {
+                formFields = `
+                    <div class="space-y-3">
+                        ${editIndex === -1 ? `<div><label class="text-xs font-bold">ID Kode</label><input type="text" id="m_id" required class="w-full border p-2 rounded-lg text-sm uppercase"></div>` : `<input type="hidden" id="m_id" value="${item.id}">`}
+                        <div><label class="text-xs font-bold">Nama Lengkap</label><input type="text" id="m_nama" value="${item.nama||''}" required class="w-full border p-2 rounded-lg text-sm"></div>
+                        <div><label class="text-xs font-bold">Telepon/WA</label><input type="text" id="m_telp" value="${item.telepon||''}" required class="w-full border p-2 rounded-lg text-sm"></div>
+                        ${type !== 'sopir' ? `<div><label class="text-xs font-bold">Alamat</label><textarea id="m_alamat" class="w-full border p-2 rounded-lg text-sm">${item.alamat||''}</textarea></div>` : ''}
+                    </div>`;
+            }
+
+            showModal(`<div><h3 class="text-lg font-bold text-slate-900 mb-4">${title} ${type.toUpperCase()}</h3><form onsubmit="saveMasterData(event, '${type}', ${editIndex})">${formFields}<div class="mt-5 flex justify-end gap-2"><button type="button" onclick="closeModal()" class="px-4 py-2 bg-slate-200 rounded-lg text-xs font-bold text-slate-700">Batal</button><button type="submit" class="px-4 py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold">Simpan</button></div></form></div>`);
+        }
+
+        function saveMasterData(e, type, index) {
+            e.preventDefault();
+            let newData = {};
+            if (type === 'users') {
+                newData = { id: index >= 0 ? usersData[index].id : Date.now(), name: document.getElementById('m_name').value, username: document.getElementById('m_user').value, password: document.getElementById('m_pass').value, role: document.getElementById('m_role').value };
+                if(index >= 0) usersData[index] = newData; else usersData.push(newData);
+            } else if (type === 'nopol') {
+                newData = { id: index >= 0 ? masterData.nopol[index].id : 'NPL-'+Date.now(), nopol: document.getElementById('m_nopol').value.toUpperCase(), jenis: document.getElementById('m_jenis').value, sopirDefault: document.getElementById('m_sopir').value };
+                if(index >= 0) masterData.nopol[index] = newData; else masterData.nopol.push(newData);
+            } else {
+                newData = { id: index >= 0 ? document.getElementById('m_id').value : document.getElementById('m_id').value.toUpperCase(), nama: document.getElementById('m_nama').value, telepon: document.getElementById('m_telp').value, alamat: type !== 'sopir' ? document.getElementById('m_alamat').value : undefined };
+                if(index >= 0) masterData[type][index] = newData; else masterData[type].push(newData);
+            }
+            saveData(); closeModal(); renderMasterContent(); showToast('Data master berhasil disimpan');
+        }
+
+        function deleteMasterData(type, index) { confirmAction('Hapus Data', 'Yakin ingin hapus?', `executeDeleteMaster('${type}', ${index})`); }
+        function executeDeleteMaster(type, index) {
+            if(type === 'users' && usersData[index].username === 'admin') return showToast('Admin utama tidak bisa dihapus', 'danger');
+            if(type === 'users') usersData.splice(index, 1); else masterData[type].splice(index, 1);
+            saveData(); renderMasterContent(); showToast('Data dihapus');
+        }
+
+        // ================= TRANSAKSI PEMBELIAN =================
+        function renderPembelianViewHelper() { renderPembelianView(document.getElementById('mainContainer')); }
+        function renderPembelianView(container) {
+            const filtered = purchasesData.filter(p => isDateInFilter(p.tanggal));
+            container.innerHTML = `
+                <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm mb-4">
+                    <div class="flex flex-col sm:flex-row justify-between gap-3 items-end">
+                        <div class="w-full sm:w-auto flex-1">${getMonthYearFilterHTML('renderPembelianViewHelper')}</div>
+                        <div class="flex gap-2 w-full sm:w-auto">
+                            <button onclick="exportTableToExcel('tablePembelian', 'Pembelian_Pemasok')" class="bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2"><i class="fa-solid fa-file-excel"></i> Excel</button>
+                            <button onclick="openPembelianModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2"><i class="fa-solid fa-plus-circle"></i> Tambah Beli</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto custom-scrollbar">
+                        <table id="tablePembelian" class="w-full text-left text-xs whitespace-nowrap">
+                            <thead class="bg-slate-800 text-slate-200 font-bold uppercase tracking-wider text-[10px]">
+                                <tr><th class="py-3 px-4">No. Trx</th><th class="py-3 px-4">Tanggal</th><th class="py-3 px-4">Pemasok</th><th class="py-3 px-4 text-center">Armada</th><th class="py-3 px-4 text-right">Total Kg</th><th class="py-3 px-4 text-right">Total Tagihan</th><th class="py-3 px-4 text-right no-export">Aksi</th></tr>
+                            </thead>
+                            <tbody>
+                                ${filtered.length === 0 ? '<tr><td colspan="7" class="text-center py-5 text-slate-500">Tidak ada transaksi</td></tr>' : ''}
+                                ${filtered.map(p => `
+                                    <tr class="border-b border-slate-100 hover:bg-slate-50">
+                                        <td class="py-3 px-4 font-bold text-emerald-700">${p.id}</td><td class="py-3 px-4">${p.tanggal}</td><td class="py-3 px-4 font-bold">${p.pemasok}</td><td class="py-3 px-4 text-center"><span class="bg-slate-200 px-2 py-1 rounded font-bold">${p.items.length} Truk</span></td><td class="py-3 px-4 text-right">${formatKg(p.totalTonase)}</td><td class="py-3 px-4 text-right font-extrabold text-amber-600">${formatRp(p.totalBeli)}</td>
+                                        <td class="py-3 px-4 text-right no-export">
+                                            <button onclick="printInvoicePDF('beli', '${p.id}')" title="Cetak PDF" class="text-slate-500 hover:text-orange-600 p-1 mr-1"><i class="fa-solid fa-file-pdf"></i></button>
+                                            <button onclick="sendWA('beli', '${p.id}')" title="Kirim WA" class="text-slate-500 hover:text-green-600 p-1 mr-1"><i class="fa-brands fa-whatsapp"></i></button>
+                                            <button onclick="openPembelianModal('${p.id}')" class="text-blue-600 p-1 mr-1"><i class="fa-solid fa-pen-to-square"></i></button>
+                                            <button onclick="deleteTransaksi('beli', '${p.id}')" class="text-red-600 p-1"><i class="fa-solid fa-trash"></i></button>
+                                        </td>
+                                    </tr>`).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        function openPembelianModal(trxId = null) {
+            let trx = trxId ? purchasesData.find(p => p.id === trxId) : { id: generateId('BELI'), tanggal: new Date().toISOString().split('T')[0], pemasok: '', items: [] };
+            tempTransactionItems = JSON.parse(JSON.stringify(trx.items));
+            if(tempTransactionItems.length === 0) addTrxItemRow();
+
+            showModal(`
+                <div class="h-full flex flex-col max-h-[85vh]">
+                    <div class="flex justify-between items-center mb-4 flex-shrink-0"><h3 class="text-lg font-bold"><i class="fa-solid fa-cart-shopping text-emerald-600 mr-2"></i> ${trxId ? 'Edit' : 'Input'} Pembelian Pemasok</h3><button onclick="closeModal()" class="text-slate-400 hover:text-red-500"><i class="fa-solid fa-xmark text-xl"></i></button></div>
+                    <div class="flex-1 overflow-y-auto modal-scrollbar pr-2 pb-4">
+                        <form id="formPembelian" class="space-y-4">
+                            <input type="hidden" id="beli_id" value="${trx.id}">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                <div><label class="block text-xs font-bold mb-1">Tanggal</label><input type="date" id="beli_tanggal" value="${trx.tanggal}" required class="w-full border p-2 rounded-lg text-sm"></div>
+                                <div><label class="block text-xs font-bold mb-1">Pemasok</label><select id="beli_pemasok" required class="w-full border p-2 rounded-lg text-sm"><option value="">-- Pilih --</option>${masterData.pemasok.map(s => `<option value="${s.nama}" ${trx.pemasok===s.nama?'selected':''}>${s.nama}</option>`).join('')}</select></div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-end mb-2"><h4 class="text-sm font-bold border-b-2 border-emerald-500 pb-1">Detail Armada</h4><button type="button" onclick="addTrxItemRow()" class="bg-blue-100 text-blue-700 px-3 py-1.5 rounded text-xs font-bold">+ Tambah Armada</button></div>
+                                <div class="overflow-x-auto"><table class="w-full text-xs text-left min-w-[700px]"><thead class="bg-slate-800 text-white"><tr><th class="p-2 w-1/6">Nopol</th><th class="p-2 w-1/6">Sopir</th><th class="p-2 w-1/6 text-right">Kg</th><th class="p-2 w-1/6 text-right">Harga/Kg</th><th class="p-2 w-1/6 text-right">Subtotal & Ops</th><th class="p-2 w-12 text-center">Del</th></tr></thead><tbody id="trxItemsContainer"></tbody><tfoot class="bg-slate-100 font-bold border-t"><tr><td colspan="2" class="p-2 text-right">TOTAL:</td><td class="p-2 text-right" id="beli_tot_kg">0</td><td></td><td class="p-2 text-right text-amber-700" id="beli_tot_rp">0</td><td></td></tr></tfoot></table></div>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="pt-4 border-t flex justify-end gap-3 flex-shrink-0 bg-white"><button onclick="closeModal()" class="px-5 py-2.5 bg-slate-200 text-xs font-bold rounded-xl">Batal</button><button onclick="savePembelian()" class="px-5 py-2.5 bg-emerald-600 text-white text-xs font-bold rounded-xl">Simpan</button></div>
+                </div>
+            `);
+            renderTrxItems();
+        }
+
+        function addTrxItemRow() { tempTransactionItems.push({ nopol: '', sopir: '', tonase: 0, harga: 0, operasional: 0, subtotal: 0 }); renderTrxItems(); }
+        function removeTrxItemRow(i) { tempTransactionItems.splice(i, 1); if(tempTransactionItems.length === 0) addTrxItemRow(); renderTrxItems(); }
+
+        function renderTrxItems() {
+            const container = document.getElementById('trxItemsContainer');
+            if(!container) return;
+            container.innerHTML = tempTransactionItems.map((item, i) => `
+                <tr class="border-b"><td class="p-1"><select onchange="onNopolChange(${i}, this.value)" class="w-full border p-1 rounded text-xs"><option value="">Pilih...</option>${masterData.nopol.map(n => `<option value="${n.nopol}" ${item.nopol===n.nopol?'selected':''}>${n.nopol}</option>`).join('')}</select></td><td class="p-1"><select id="sopir_row_${i}" onchange="updateTrxItem(${i}, 'sopir', this.value)" class="w-full border p-1 rounded text-xs"><option value="">Pilih...</option>${masterData.sopir.map(s => `<option value="${s.nama}" ${item.sopir===s.nama?'selected':''}>${s.nama}</option>`).join('')}</select></td><td class="p-1"><input type="number" oninput="updateTrxItem(${i}, 'tonase', this.value)" value="${item.tonase||''}" class="w-full border p-1 rounded text-xs text-right"></td><td class="p-1"><input type="number" oninput="updateTrxItem(${i}, 'harga', this.value)" value="${item.harga||''}" class="w-full border p-1 rounded text-xs text-right"></td><td class="p-1 text-right font-bold"><div class="text-slate-700">${formatRp(item.subtotal)}</div><div class="flex justify-end gap-1 mt-1 text-[9px] text-slate-500">Ops: <input type="number" oninput="updateTrxItem(${i}, 'operasional', this.value)" value="${item.operasional||''}" class="w-16 border rounded p-1 text-right"></div></td><td class="p-1 text-center"><button type="button" onclick="removeTrxItemRow(${i})" class="text-red-500 p-1"><i class="fa-solid fa-circle-minus"></i></button></td></tr>
+            `).join('');
+            calculateTrxTotals();
+        }
+
+        function onNopolChange(i, val) {
+            updateTrxItem(i, 'nopol', val);
+            const nd = masterData.nopol.find(n => n.nopol === val);
+            if(nd && nd.sopirDefault) { document.getElementById(`sopir_row_${i}`).value = nd.sopirDefault; updateTrxItem(i, 'sopir', nd.sopirDefault); }
+        }
+
+        function updateTrxItem(i, f, v) {
+            if(['tonase','harga','operasional'].includes(f)) { tempTransactionItems[i][f] = parseFloat(v)||0; tempTransactionItems[i].subtotal = tempTransactionItems[i].tonase * tempTransactionItems[i].harga; }
+            else { tempTransactionItems[i][f] = v; }
+            calculateTrxTotals(); if(f==='tonase'||f==='harga') renderTrxItems();
+        }
+
+        function calculateTrxTotals() {
+            let tKg=0, tRp=0, tOps=0;
+            tempTransactionItems.forEach(i => { tKg+=(i.tonase||0); tRp+=(i.subtotal||0); tOps+=(i.operasional||0); });
+            if(document.getElementById('beli_tot_kg')) document.getElementById('beli_tot_kg').innerText = formatKg(tKg);
+            if(document.getElementById('beli_tot_rp')) document.getElementById('beli_tot_rp').innerHTML = `${formatRp(tRp)}<br><span class="text-[10px] text-slate-500">Ops: ${formatRp(tOps)}</span>`;
+        }
+
+        function savePembelian() {
+            const tgl = document.getElementById('beli_tanggal').value; const pemasok = document.getElementById('beli_pemasok').value;
+            if(!tgl || !pemasok) return showToast('Lengkapi data!', 'danger');
+            const valid = tempTransactionItems.filter(i => i.nopol && i.tonase > 0 && i.harga > 0);
+            if(valid.length === 0) return showToast('Minimal 1 armada valid!', 'danger');
+            let tBeli=0, tOps=0, tKg=0; valid.forEach(i => { tBeli+=i.subtotal; tOps+=i.operasional; tKg+=i.tonase; });
+            const id = document.getElementById('beli_id').value; const idx = purchasesData.findIndex(p => p.id === id);
+            const dataToSave = { id, tanggal: tgl, pemasok, items: valid, totalBeli: tBeli, totalOperasional: tOps, totalTonase: tKg };
+            if(idx >= 0) purchasesData[idx] = dataToSave; else purchasesData.unshift(dataToSave);
+            saveData(); closeModal(); renderPembelianViewHelper(); showToast('Tersimpan!');
+        }
+
+        // ================= TRANSAKSI PENJUALAN =================
+        function renderPenjualanViewHelper() { renderPenjualanView(document.getElementById('mainContainer')); }
+        function renderPenjualanView(container) {
+            const filtered = salesData.filter(s => isDateInFilter(s.tanggal));
+            container.innerHTML = `
+                <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm mb-4">
+                    <div class="flex flex-col sm:flex-row justify-between gap-3 items-end">
+                        <div class="w-full sm:w-auto flex-1">${getMonthYearFilterHTML('renderPenjualanViewHelper')}</div>
+                        <div class="flex gap-2 w-full sm:w-auto">
+                            <button onclick="exportTableToExcel('tablePenjualan', 'Penjualan_Konsumen')" class="bg-blue-800 text-white text-xs font-bold py-2.5 px-4 rounded-xl flex items-center gap-2"><i class="fa-solid fa-file-excel"></i> Excel</button>
+                            <button onclick="openPenjualanModal()" class="bg-blue-600 text-white text-xs font-bold py-2.5 px-4 rounded-xl flex items-center gap-2"><i class="fa-solid fa-plus-circle"></i> Tambah Jual</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto custom-scrollbar">
+                        <table id="tablePenjualan" class="w-full text-left text-xs whitespace-nowrap"><thead class="bg-slate-800 text-white uppercase text-[10px]"><tr><th class="py-3 px-4">No. Invoice</th><th class="py-3 px-4">Tanggal</th><th class="py-3 px-4">Konsumen</th><th class="py-3 px-4 text-center">Armada</th><th class="py-3 px-4 text-right">Total Kg</th><th class="py-3 px-4 text-right">Total Tagihan</th><th class="py-3 px-4 text-right no-export">Aksi</th></tr></thead>
+                        <tbody>${filtered.map(s => `<tr class="border-b"><td class="py-3 px-4 font-bold text-blue-700">${s.id}</td><td class="py-3 px-4">${s.tanggal}</td><td class="py-3 px-4 font-bold">${s.konsumen}</td><td class="py-3 px-4 text-center"><span class="bg-slate-200 px-2 py-1 rounded font-bold">${s.items.length} Truk</span></td><td class="py-3 px-4 text-right">${formatKg(s.totalTonase)}</td><td class="py-3 px-4 text-right font-bold text-blue-600">${formatRp(s.totalJual)}</td><td class="py-3 px-4 text-right no-export"><button onclick="printInvoicePDF('jual', '${s.id}')" title="Cetak PDF" class="text-slate-500 hover:text-orange-500 mr-2"><i class="fa-solid fa-file-pdf"></i></button><button onclick="sendWA('jual', '${s.id}')" title="Kirim WA" class="text-slate-500 hover:text-green-600 mr-2"><i class="fa-brands fa-whatsapp"></i></button><button onclick="openPenjualanModal('${s.id}')" class="text-blue-600 mr-2"><i class="fa-solid fa-pen"></i></button><button onclick="deleteTransaksi('jual', '${s.id}')" class="text-red-600"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('')}</tbody></table>
+                    </div>
+                </div>
+            `;
+        }
+
+        function openPenjualanModal(trxId = null) {
+            let trx = trxId ? salesData.find(s => s.id === trxId) : { id: generateId('INV'), tanggal: new Date().toISOString().split('T')[0], konsumen: '', items: [] };
+            tempTransactionItems = JSON.parse(JSON.stringify(trx.items));
+            if(tempTransactionItems.length === 0) addTrxItemRow();
+
+            showModal(`
+                <div class="h-full flex flex-col max-h-[85vh]">
+                    <div class="flex justify-between items-center mb-4 flex-shrink-0"><h3 class="text-lg font-bold"><i class="fa-solid fa-file-invoice-dollar text-blue-600 mr-2"></i> ${trxId ? 'Edit' : 'Input'} Penjualan Konsumen</h3><button onclick="closeModal()" class="text-slate-400 hover:text-red-500"><i class="fa-solid fa-xmark text-xl"></i></button></div>
+                    <div class="flex-1 overflow-y-auto modal-scrollbar pr-2 pb-4">
+                        <form id="formPenjualan" class="space-y-4">
+                            <input type="hidden" id="jual_id" value="${trx.id}">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                <div><label class="block text-xs font-bold mb-1">Tanggal</label><input type="date" id="jual_tanggal" value="${trx.tanggal}" required class="w-full border p-2 rounded-lg text-sm"></div>
+                                <div><label class="block text-xs font-bold mb-1">Konsumen</label><select id="jual_konsumen" required class="w-full border p-2 rounded-lg text-sm"><option value="">-- Pilih --</option>${masterData.konsumen.map(k => `<option value="${k.nama}" ${trx.konsumen===k.nama?'selected':''}>${k.nama}</option>`).join('')}</select></div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-end mb-2"><h4 class="text-sm font-bold border-b-2 border-blue-500 pb-1">Detail Pengiriman</h4><button type="button" onclick="addTrxItemRow()" class="bg-blue-100 text-blue-700 px-3 py-1.5 rounded text-xs font-bold">+ Tambah Armada</button></div>
+                                <div class="overflow-x-auto"><table class="w-full text-xs text-left min-w-[650px]"><thead class="bg-slate-800 text-white"><tr><th class="p-2 w-1/5">Nopol</th><th class="p-2 w-1/5">Sopir</th><th class="p-2 w-1/5 text-right">Kg</th><th class="p-2 w-1/5 text-right">Harga Jual/Kg</th><th class="p-2 w-1/5 text-right">Subtotal</th><th class="p-2 w-10 text-center">Del</th></tr></thead><tbody id="trxItemsContainerJual"></tbody><tfoot class="bg-slate-100 font-bold border-t"><tr><td colspan="2" class="p-2 text-right">TOTAL:</td><td class="p-2 text-right" id="jual_tot_kg">0</td><td></td><td class="p-2 text-right text-blue-700" id="jual_tot_rp">0</td><td></td></tr></tfoot></table></div>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="pt-4 border-t flex justify-end gap-3 flex-shrink-0 bg-white"><button onclick="closeModal()" class="px-5 py-2.5 bg-slate-200 text-xs font-bold rounded-xl">Batal</button><button onclick="savePenjualan()" class="px-5 py-2.5 bg-blue-600 text-white text-xs font-bold rounded-xl">Simpan</button></div>
+                </div>
+            `);
+            renderTrxItemsJual();
+        }
+
+        function renderTrxItemsJual() {
+            const container = document.getElementById('trxItemsContainerJual');
+            if(!container) return;
+            container.innerHTML = tempTransactionItems.map((item, i) => `
+                <tr class="border-b"><td class="p-1"><select onchange="onNopolChange(${i}, this.value); renderTrxItemsJual();" class="w-full border p-1 rounded text-xs"><option value="">Pilih...</option>${masterData.nopol.map(n => `<option value="${n.nopol}" ${item.nopol===n.nopol?'selected':''}>${n.nopol}</option>`).join('')}</select></td><td class="p-1"><select id="sopir_row_${i}" onchange="updateTrxItem(${i}, 'sopir', this.value); renderTrxItemsJual();" class="w-full border p-1 rounded text-xs"><option value="">Pilih...</option>${masterData.sopir.map(s => `<option value="${s.nama}" ${item.sopir===s.nama?'selected':''}>${s.nama}</option>`).join('')}</select></td><td class="p-1"><input type="number" oninput="updateTrxItem(${i}, 'tonase', this.value); renderTrxItemsJual();" value="${item.tonase||''}" class="w-full border p-1 rounded text-xs text-right"></td><td class="p-1"><input type="number" oninput="updateTrxItem(${i}, 'harga', this.value); renderTrxItemsJual();" value="${item.harga||''}" class="w-full border p-1 rounded text-xs text-right"></td><td class="p-1 text-right font-bold text-slate-700">${formatRp(item.subtotal)}</td><td class="p-1 text-center"><button type="button" onclick="removeTrxItemRow(${i}); renderTrxItemsJual();" class="text-red-500"><i class="fa-solid fa-circle-minus"></i></button></td></tr>
+            `).join('');
+            let tKg=0, tRp=0; tempTransactionItems.forEach(i => { tKg+=(i.tonase||0); tRp+=(i.subtotal||0); });
+            document.getElementById('jual_tot_kg').innerText = formatKg(tKg); document.getElementById('jual_tot_rp').innerText = formatRp(tRp);
+        }
+
+        function savePenjualan() {
+            const tgl = document.getElementById('jual_tanggal').value; const kons = document.getElementById('jual_konsumen').value;
+            if(!tgl || !kons) return showToast('Lengkapi form!', 'danger');
+            const valid = tempTransactionItems.filter(i => i.nopol && i.tonase > 0 && i.harga > 0);
+            if(valid.length === 0) return showToast('Minimal 1 armada valid!', 'danger');
+            let tJual=0, tKg=0; valid.forEach(i => { tJual+=i.subtotal; tKg+=i.tonase; });
+            const id = document.getElementById('jual_id').value; const idx = salesData.findIndex(s => s.id === id);
+            const dataToSave = { id, tanggal: tgl, konsumen: kons, items: valid, totalJual: tJual, totalTonase: tKg };
+            if(idx >= 0) salesData[idx] = dataToSave; else salesData.unshift(dataToSave);
+            saveData(); closeModal(); renderPenjualanViewHelper(); showToast('Tersimpan!');
+        }
+
+        // ================= BIAYA OPERASIONAL =================
+        function renderBiayaViewHelper() { renderBiayaView(document.getElementById('mainContainer')); }
+        function renderBiayaView(container) {
+            const filtered = expensesData.filter(e => isDateInFilter(e.tanggal));
+            container.innerHTML = `
+                <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm mb-4">
+                    <div class="flex flex-col sm:flex-row justify-between gap-3 items-end">
+                        <div class="w-full sm:w-auto flex-1">${getMonthYearFilterHTML('renderBiayaViewHelper')}</div>
+                        <div class="flex gap-2 w-full sm:w-auto">
+                            <button onclick="exportTableToExcel('tableBiaya', 'Biaya_Operasional')" class="bg-red-800 hover:bg-red-900 text-white text-xs font-bold py-2.5 px-4 rounded-xl flex items-center gap-2"><i class="fa-solid fa-file-excel"></i> Excel</button>
+                            <button onclick="openBiayaModal()" class="bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-2.5 px-4 rounded-xl flex items-center gap-2"><i class="fa-solid fa-plus-circle"></i> Tambah Biaya</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto custom-scrollbar">
+                        <table id="tableBiaya" class="w-full text-left text-xs whitespace-nowrap"><thead class="bg-slate-800 text-white uppercase text-[10px]"><tr><th class="py-3 px-4">ID Biaya</th><th class="py-3 px-4">Tanggal</th><th class="py-3 px-4">Uraian</th><th class="py-3 px-4 text-center">Nota</th><th class="py-3 px-4">User</th><th class="py-3 px-4 text-right">Nominal</th><th class="py-3 px-4 text-right no-export">Aksi</th></tr></thead>
+                        <tbody>${filtered.length === 0 ? '<tr><td colspan="7" class="text-center py-4 text-slate-500">Tidak ada pengeluaran</td></tr>' : ''}
+                            ${filtered.map(e => `
+                            <tr class="border-b"><td class="py-3 px-4 font-bold text-red-700">${e.id}</td><td class="py-3 px-4">${e.tanggal}</td><td class="py-3 px-4 whitespace-normal min-w-[200px]">${e.uraian}</td>
+                            <td class="py-3 px-4 text-center">
+                                ${e.foto ? `<button onclick="showFotoModal('${e.foto}')" class="text-emerald-600 hover:text-emerald-800" title="Lihat Foto Nota"><i class="fa-solid fa-image text-lg"></i></button>` : `<span class="text-[10px] text-slate-400">-</span>`}
+                            </td>
+                            <td class="py-3 px-4"><span class="bg-slate-100 px-2 py-1 rounded text-[10px] uppercase">${e.inputBy}</span></td><td class="py-3 px-4 text-right font-bold text-red-600">${formatRp(e.total)}</td><td class="py-3 px-4 text-right no-export">${(currentUser.role==='admin'||currentUser.username===e.inputBy)?`<button onclick="openBiayaModal('${e.id}')" class="text-blue-600 mr-2"><i class="fa-solid fa-pen"></i></button><button onclick="deleteTransaksi('biaya', '${e.id}')" class="text-red-600"><i class="fa-solid fa-trash"></i></button>`:'<span class="text-[10px] text-slate-400">No Access</span>'}</td></tr>
+                            `).join('')}
+                        </tbody>
+                        <tfoot class="bg-slate-50 font-bold border-t"><tr><td colspan="5" class="py-3 px-4 text-right">TOTAL PENGELUARAN:</td><td class="py-3 px-4 text-right text-red-700 text-sm">${formatRp(filtered.reduce((a,b)=>a+b.total,0))}</td><td></td></tr></tfoot></table>
+                    </div>
+                </div>
+            `;
+        }
+
+        function openBiayaModal(id = null) {
+            let item = id ? expensesData.find(e => e.id === id) : { id: generateId('BIA'), tanggal: new Date().toISOString().split('T')[0], uraian: '', total: '', foto: '' };
+            currentFotoBiayaBase64 = item.foto || ''; 
+            
+            showModal(`
+                <div>
+                    <h3 class="text-lg font-bold mb-4"><i class="fa-solid fa-receipt text-red-600 mr-2"></i> ${id ? 'Edit' : 'Input'} Biaya Operasional</h3>
+                    <form onsubmit="saveBiaya(event)">
+                        <input type="hidden" id="biaya_id" value="${item.id}">
+                        <div class="space-y-4">
+                            <div><label class="block text-xs font-bold mb-1">Tanggal</label><input type="date" id="biaya_tanggal" value="${item.tanggal}" required class="w-full border p-2 rounded-lg text-sm"></div>
+                            <div><label class="block text-xs font-bold mb-1">Uraian / Keterangan</label><textarea id="biaya_uraian" required class="w-full border p-2 rounded-lg text-sm" rows="3">${item.uraian}</textarea></div>
+                            <div><label class="block text-xs font-bold mb-1">Nominal (Rp)</label><input type="number" id="biaya_total" value="${item.total}" required class="w-full border p-2 rounded-lg text-sm font-bold text-red-600"></div>
+                            
+                            <div class="p-3 bg-slate-100 rounded-lg border border-slate-200 border-dashed">
+                                <label class="block text-xs font-bold mb-2">Foto Nota / Bukti Pembayaran (Opsional)</label>
+                                <input type="file" id="biaya_foto" accept="image/*" onchange="handleFotoUpload(event)" class="w-full text-xs mb-2">
+                                <p class="text-[10px] text-slate-500 mb-2">Ukuran gambar otomatis diperkecil agar data tidak penuh.</p>
+                                <div class="mt-2 text-center">
+                                    <img id="previewBiayaFoto" src="${currentFotoBiayaBase64}" class="max-h-32 object-contain mx-auto rounded ${currentFotoBiayaBase64 ? '' : 'hidden'} border border-slate-300">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-6 flex justify-end gap-3"><button type="button" onclick="closeModal()" class="px-5 py-2.5 bg-slate-200 text-xs font-bold rounded-xl">Batal</button><button type="submit" class="px-5 py-2.5 bg-red-600 text-white text-xs font-bold rounded-xl">Simpan Biaya</button></div>
+                    </form>
+                </div>
+            `);
+        }
+
+        function handleFotoUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = function(e) {
+                const img = new Image();
+                img.src = e.target.result;
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 600;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > MAX_WIDTH) {
+                        height *= MAX_WIDTH / width;
+                        width = MAX_WIDTH;
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    currentFotoBiayaBase64 = canvas.toDataURL('image/jpeg', 0.6); 
+                    
+                    const preview = document.getElementById('previewBiayaFoto');
+                    if(preview) {
+                        preview.src = currentFotoBiayaBase64;
+                        preview.classList.remove('hidden');
+                    }
+                };
+            };
+        }
+
+        function saveBiaya(e) {
+            e.preventDefault();
+            const data = { 
+                id: document.getElementById('biaya_id').value, 
+                tanggal: document.getElementById('biaya_tanggal').value, 
+                uraian: document.getElementById('biaya_uraian').value, 
+                total: parseFloat(document.getElementById('biaya_total').value), 
+                inputBy: currentUser.username,
+                foto: currentFotoBiayaBase64 
+            };
+            if(!data.tanggal || !data.uraian || isNaN(data.total)) return showToast('Lengkapi data!', 'danger');
+            const idx = expensesData.findIndex(x => x.id === data.id);
+            if(idx >= 0) expensesData[idx] = data; else expensesData.unshift(data);
+            saveData(); closeModal(); renderBiayaViewHelper(); showToast('Biaya tersimpan');
+        }
+
+        function showFotoModal(base64Image) {
+            document.getElementById('fotoEnlarged').src = base64Image;
+            document.getElementById('fotoOverlay').classList.remove('hidden');
+        }
+
+        function closeFotoModal() {
+            document.getElementById('fotoOverlay').classList.add('hidden');
+            document.getElementById('fotoEnlarged').src = '';
+        }
+
+        function deleteTransaksi(type, id) { confirmAction('Hapus Transaksi', 'Data transaksi ini akan dihapus.', `executeDeleteTrx('${type}', '${id}')`); }
+        function executeDeleteTrx(type, id) {
+            if(type==='beli') { purchasesData = purchasesData.filter(p=>p.id!==id); renderPembelianViewHelper(); }
+            else if(type==='jual') { salesData = salesData.filter(s=>s.id!==id); renderPenjualanViewHelper(); }
+            else if(type==='biaya') { expensesData = expensesData.filter(e=>e.id!==id); renderBiayaViewHelper(); }
+            saveData(); showToast('Dihapus.');
+        }
+
+        // ================= FITUR BARU: HUTANG & PIUTANG =================
+        function getPembayaranData(type) {
+            const trxData = type === 'beli' ? purchasesData : salesData;
+            const payData = type === 'beli' ? purchasePayments : salesPayments;
+            return trxData.map(trx => {
+                const total = type === 'beli' ? trx.totalBeli : trx.totalJual;
+                const payments = payData.filter(p => p.trxId === trx.id);
+                const paid = payments.reduce((acc, curr) => acc + curr.jumlah, 0);
+                const sisa = total - paid;
+                const status = sisa <= 0 ? 'Lunas' : (paid > 0 ? 'Sebagian' : 'Belum Lunas');
+                return { ...trx, total, paid, sisa, status, payments };
+            });
+        }
+
+        // --- HUTANG PEMASOK ---
+        function renderBayarPembelianViewHelper() { renderBayarPembelianView(document.getElementById('mainContainer')); }
+        function renderBayarPembelianView(container) {
+            const allData = getPembayaranData('beli');
+            const filtered = allData.filter(p => isDateInFilter(p.tanggal));
+
+            container.innerHTML = `
+                <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm mb-4">
+                    <div class="flex flex-col md:flex-row justify-between gap-3 items-end">
+                        <div class="w-full md:w-auto flex-1">${getMonthYearFilterHTML('renderBayarPembelianViewHelper', true)}</div>
+                        <div class="flex gap-2 w-full md:w-auto">
+                            <button onclick="exportTableToExcel('tableHutang', 'Laporan_Hutang_Pemasok')" class="bg-emerald-800 text-white text-xs font-bold py-2.5 px-4 rounded-xl flex items-center gap-2"><i class="fa-solid fa-file-excel"></i> Export Excel</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto custom-scrollbar">
+                        <table id="tableHutang" class="w-full text-left text-xs whitespace-nowrap">
+                            <thead class="bg-slate-800 text-white uppercase text-[10px]">
+                                <tr><th class="py-3 px-4">No. Beli</th><th class="py-3 px-4">Tgl Beli</th><th class="py-3 px-4">Pemasok</th><th class="py-3 px-4 text-right">Total Hutang</th><th class="py-3 px-4 text-right">Telah Dibayar</th><th class="py-3 px-4 text-right">Kekurangan</th><th class="py-3 px-4 text-center">Status</th><th class="py-3 px-4 text-center no-export">Aksi</th></tr>
+                            </thead>
+                            <tbody>
+                                ${filtered.length === 0 ? '<tr><td colspan="8" class="text-center py-5 text-slate-500">Tidak ada data hutang</td></tr>' : ''}
+                                ${filtered.map(p => {
+                                    let statusBadge = p.status === 'Lunas' ? '<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded font-bold">LUNAS</span>' : p.status === 'Sebagian' ? '<span class="bg-amber-100 text-amber-700 px-2 py-1 rounded font-bold">SEBAGIAN</span>' : '<span class="bg-red-100 text-red-700 px-2 py-1 rounded font-bold">BLM LUNAS</span>';
+                                    return `
+                                    <tr class="border-b hover:bg-slate-50">
+                                        <td class="py-3 px-4 font-bold">${p.id}</td><td class="py-3 px-4">${p.tanggal}</td><td class="py-3 px-4 font-bold">${p.pemasok}</td>
+                                        <td class="py-3 px-4 text-right font-bold">${formatRp(p.total)}</td><td class="py-3 px-4 text-right text-emerald-600 font-bold">${formatRp(p.paid)}</td><td class="py-3 px-4 text-right font-extrabold text-red-600">${formatRp(p.sisa)}</td><td class="py-3 px-4 text-center">${statusBadge}</td>
+                                        <td class="py-3 px-4 text-center no-export">
+                                            <button onclick="printInvoicePDF('hutang', '${p.id}')" title="Cetak PDF Hutang" class="text-slate-500 hover:text-orange-500 mr-2"><i class="fa-solid fa-file-pdf"></i></button>
+                                            <button onclick="sendWA('hutang', '${p.id}')" title="Kirim WA Hutang" class="text-slate-500 hover:text-green-600 mr-2"><i class="fa-brands fa-whatsapp"></i></button>
+                                            ${p.sisa > 0 ? `<button onclick="openBayarModal('beli', '${p.id}', ${p.sisa})" class="bg-emerald-600 text-white px-2 py-1.5 rounded text-[10px] font-bold mr-1"><i class="fa-solid fa-money-bill-wave"></i> Bayar</button>` : ''}
+                                            <button onclick="showRiwayatPembayaran('beli', '${p.id}')" class="bg-slate-200 text-slate-700 px-2 py-1.5 rounded text-[10px] font-bold"><i class="fa-solid fa-clock-rotate-left"></i> Riwayat</button>
+                                        </td>
+                                    </tr>`;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- PIUTANG KONSUMEN ---
+        function renderBayarPenjualanViewHelper() { renderBayarPenjualanView(document.getElementById('mainContainer')); }
+        function renderBayarPenjualanView(container) {
+            const allData = getPembayaranData('jual');
+            const searchInv = document.getElementById('searchInvoiceStr') ? document.getElementById('searchInvoiceStr').value.toLowerCase() : '';
+            
+            const filtered = allData.filter(p => {
+                const matchDate = isDateInFilter(p.tanggal);
+                const matchInv = searchInv === '' || p.id.toLowerCase().includes(searchInv);
+                return matchDate && matchInv;
+            });
+
+            container.innerHTML = `
+                <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm mb-4">
+                    <div class="flex flex-col md:flex-row justify-between gap-3 items-end">
+                        <div class="w-full md:w-auto flex-1">${getMonthYearFilterHTML('renderBayarPenjualanViewHelper', true)}</div>
+                        <div class="w-full md:w-auto flex-1 md:max-w-xs">
+                            <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Cari No. Invoice</label>
+                            <input type="text" id="searchInvoiceStr" value="${searchInv}" onkeyup="renderBayarPenjualanViewHelper()" placeholder="Ketik No Invoice..." class="w-full px-3 py-2 border rounded-xl text-xs font-medium focus:ring-blue-500 outline-none">
+                        </div>
+                        <div class="flex gap-2 w-full md:w-auto">
+                            <button onclick="exportTableToExcel('tablePiutang', 'Laporan_Piutang_Konsumen')" class="bg-blue-800 text-white text-xs font-bold py-2.5 px-4 rounded-xl flex items-center gap-2"><i class="fa-solid fa-file-excel"></i> Export Excel</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto custom-scrollbar">
+                        <table id="tablePiutang" class="w-full text-left text-xs whitespace-nowrap">
+                            <thead class="bg-slate-800 text-white uppercase text-[10px]">
+                                <tr><th class="py-3 px-4">No. Invoice</th><th class="py-3 px-4">Tgl Jual</th><th class="py-3 px-4">Konsumen</th><th class="py-3 px-4 text-right">Total Tagihan</th><th class="py-3 px-4 text-right">Telah Dibayar</th><th class="py-3 px-4 text-right">Sisa Piutang</th><th class="py-3 px-4 text-center">Status</th><th class="py-3 px-4 text-center no-export">Aksi</th></tr>
+                            </thead>
+                            <tbody>
+                                ${filtered.length === 0 ? '<tr><td colspan="8" class="text-center py-5 text-slate-500">Tidak ada data piutang</td></tr>' : ''}
+                                ${filtered.map(p => {
+                                    let statusBadge = p.status === 'Lunas' ? '<span class="bg-blue-100 text-blue-700 px-2 py-1 rounded font-bold">LUNAS</span>' : p.status === 'Sebagian' ? '<span class="bg-amber-100 text-amber-700 px-2 py-1 rounded font-bold">SEBAGIAN</span>' : '<span class="bg-red-100 text-red-700 px-2 py-1 rounded font-bold">BLM LUNAS</span>';
+                                    return `
+                                    <tr class="border-b hover:bg-slate-50">
+                                        <td class="py-3 px-4 font-bold">${p.id}</td><td class="py-3 px-4">${p.tanggal}</td><td class="py-3 px-4 font-bold">${p.konsumen}</td>
+                                        <td class="py-3 px-4 text-right font-bold">${formatRp(p.total)}</td><td class="py-3 px-4 text-right text-blue-600 font-bold">${formatRp(p.paid)}</td><td class="py-3 px-4 text-right font-extrabold text-red-600">${formatRp(p.sisa)}</td><td class="py-3 px-4 text-center">${statusBadge}</td>
+                                        <td class="py-3 px-4 text-center no-export">
+                                            <button onclick="printInvoicePDF('piutang', '${p.id}')" title="Cetak Tagihan" class="text-slate-500 hover:text-orange-500 mr-2"><i class="fa-solid fa-file-pdf"></i></button>
+                                            <button onclick="sendWA('piutang', '${p.id}')" title="Kirim Tagihan via WA" class="text-slate-500 hover:text-green-600 mr-2"><i class="fa-brands fa-whatsapp"></i></button>
+                                            ${p.sisa > 0 ? `<button onclick="openBayarModal('jual', '${p.id}', ${p.sisa})" class="bg-blue-600 text-white px-2 py-1.5 rounded text-[10px] font-bold mr-1"><i class="fa-solid fa-money-bill-wave"></i> Bayar</button>` : ''}
+                                            <button onclick="showRiwayatPembayaran('jual', '${p.id}')" class="bg-slate-200 text-slate-700 px-2 py-1.5 rounded text-[10px] font-bold"><i class="fa-solid fa-clock-rotate-left"></i> Riwayat</button>
+                                        </td>
+                                    </tr>`;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- FUNGSI MODAL PEMBAYARAN ---
+        function openBayarModal(type, trxId, sisa) {
+            const title = type === 'beli' ? 'Pembayaran Hutang Pemasok' : 'Penerimaan Piutang Konsumen';
+            const colorClass = type === 'beli' ? 'emerald' : 'blue';
+            const dateToday = new Date().toISOString().split('T')[0];
+            
+            showModal(`
+                <div>
+                    <h3 class="text-lg font-bold mb-4">${title}</h3>
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-4">
+                        <p class="text-xs text-slate-500">No. Transaksi: <span class="font-bold text-slate-800">${trxId}</span></p>
+                        <p class="text-xs text-slate-500 mt-1">Sisa Tagihan / Kekurangan: <span class="font-bold text-red-600 text-lg">${formatRp(sisa)}</span></p>
+                    </div>
+                    <form onsubmit="savePembayaran(event, '${type}', '${trxId}', ${sisa})">
+                        <div class="space-y-4">
+                            <div><label class="block text-xs font-bold mb-1">Tanggal Bayar</label><input type="date" id="bayar_tanggal" value="${dateToday}" required class="w-full border p-2 rounded-lg text-sm"></div>
+                            <div>
+                                <label class="block text-xs font-bold mb-1">Jumlah Nominal Dibayar (Rp)</label>
+                                <input type="number" id="bayar_jumlah" max="${sisa}" value="${sisa}" required class="w-full border p-2 rounded-lg text-sm font-bold text-${colorClass}-700">
+                            </div>
+                            <div><label class="block text-xs font-bold mb-1">Metode / Keterangan</label><input type="text" id="bayar_ket" placeholder="Cth: Transfer BCA, Tunai..." class="w-full border p-2 rounded-lg text-sm"></div>
+                        </div>
+                        <div class="mt-6 flex justify-end gap-3"><button type="button" onclick="closeModal()" class="px-5 py-2.5 bg-slate-200 text-xs font-bold rounded-xl">Batal</button><button type="submit" class="px-5 py-2.5 bg-${colorClass}-600 text-white text-xs font-bold rounded-xl">Simpan Pembayaran</button></div>
+                    </form>
+                </div>
+            `);
+        }
+
+        function savePembayaran(e, type, trxId, maxSisa) {
+            e.preventDefault();
+            const tanggal = document.getElementById('bayar_tanggal').value;
+            const jumlah = parseFloat(document.getElementById('bayar_jumlah').value);
+            const ket = document.getElementById('bayar_ket').value;
+            
+            if (jumlah <= 0 || jumlah > maxSisa) return showToast('Nominal tidak valid!', 'danger');
+            
+            const payData = { id: generateId('PAY'), trxId: trxId, tanggal: tanggal, jumlah: jumlah, keterangan: ket, inputBy: currentUser.username };
+            
+            if (type === 'beli') purchasePayments.push(payData); else salesPayments.push(payData);
+            
+            saveData(); closeModal(); showToast('Pembayaran dicatat!', 'success');
+            if (type === 'beli') renderBayarPembelianViewHelper(); else renderBayarPenjualanViewHelper();
+        }
+
+        function showRiwayatPembayaran(type, trxId) {
+            const payData = type === 'beli' ? purchasePayments : salesPayments;
+            const payments = payData.filter(p => p.trxId === trxId);
+            const title = type === 'beli' ? 'Riwayat Pembayaran Hutang' : 'Riwayat Penerimaan Piutang';
+            
+            let rows = payments.map(p => `
+                <tr class="border-b"><td class="p-2 text-xs">${formatTanggal(p.tanggal)}</td><td class="p-2 text-xs font-bold text-right text-${type==='beli'?'emerald':'blue'}-600">${formatRp(p.jumlah)}</td><td class="p-2 text-xs">${p.keterangan || '-'}</td><td class="p-2 text-xs text-center">${p.inputBy}</td><td class="p-2 text-center"><button onclick="hapusPembayaran('${type}', '${p.id}', '${trxId}')" class="text-red-500"><i class="fa-solid fa-trash"></i></button></td></tr>
+            `).join('');
+            
+            if(payments.length === 0) rows = '<tr><td colspan="5" class="text-center text-xs p-4 text-slate-500">Belum ada riwayat pembayaran</td></tr>';
+
+            showModal(`
+                <div>
+                    <div class="flex justify-between items-center mb-4"><h3 class="text-lg font-bold">${title}</h3><button onclick="closeModal()" class="text-slate-400 hover:text-red-500"><i class="fa-solid fa-xmark text-xl"></i></button></div>
+                    <p class="text-xs text-slate-600 mb-3 font-bold">No. Referensi: ${trxId}</p>
+                    <table class="w-full text-left">
+                        <thead class="bg-slate-100 text-[10px] uppercase font-bold text-slate-600"><tr><th class="p-2">Tanggal</th><th class="p-2 text-right">Nominal</th><th class="p-2">Keterangan</th><th class="p-2 text-center">User</th><th class="p-2 text-center">Aksi</th></tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+            `);
+        }
+
+        function hapusPembayaran(type, payId, trxId) {
+            confirmAction('Hapus Pembayaran', 'Anda yakin ingin menghapus data pembayaran ini?', `executeHapusPembayaran('${type}', '${payId}', '${trxId}')`);
+        }
+
+        function executeHapusPembayaran(type, payId, trxId) {
+            if (type === 'beli') {
+                purchasePayments = purchasePayments.filter(p => p.id !== payId);
+            } else {
+                salesPayments = salesPayments.filter(p => p.id !== payId);
+            }
+            
+            saveData();
+            closeModal();
+            showToast('Riwayat pembayaran berhasil dihapus.', 'info');
+            
+            // Re-render the respective view to show updated stats
+            if (type === 'beli') {
+                renderBayarPembelianViewHelper();
+            } else {
+                renderBayarPenjualanViewHelper();
+            }
+        }
+
+        // ================= FITUR BARU: CETAK PDF & KIRIM WA =================
+        function printInvoicePDF(type, id) {
+            const container = document.getElementById('pdfPrintContainer');
+            let data, title, details;
+            
+            if (type === 'beli' || type === 'hutang') {
+                data = purchasesData.find(p => p.id === id);
+                title = 'INVOICE PEMBELIAN (HUTANG)';
+                details = `Pemasok: ${data.pemasok}`;
+            } else {
+                data = salesData.find(s => s.id === id);
+                title = 'INVOICE PENJUALAN (PIUTANG)';
+                details = `Konsumen: ${data.konsumen}`;
+            }
+
+            if (!data) return showToast('Data tidak ditemukan', 'danger');
+
+            let itemsHtml = data.items.map((item, i) => `
+                <tr>
+                    <td style="border: 1px solid #ddd; padding: 10px; text-align: center;">${i+1}</td>
+                    <td style="border: 1px solid #ddd; padding: 10px;">${item.nopol}</td>
+                    <td style="border: 1px solid #ddd; padding: 10px;">${item.sopir}</td>
+                    <td style="border: 1px solid #ddd; padding: 10px; text-align: right;">${formatKg(item.tonase)}</td>
+                    <td style="border: 1px solid #ddd; padding: 10px; text-align: right;">${formatRp(item.harga)}</td>
+                    <td style="border: 1px solid #ddd; padding: 10px; text-align: right;">${formatRp(item.subtotal)}</td>
+                </tr>
+            `).join('');
+
+            let totalVal = type === 'beli' || type === 'hutang' ? data.totalBeli : data.totalJual;
+
+            // Generate HTML for PDF Document
+            container.innerHTML = `
+                <div style="padding: 20px;">
+                    <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #059669; padding-bottom: 20px;">
+                        <h2 style="margin: 0; color: #064e3b; font-size: 24px;">ATMAJAYA BHARATA UNGGAS</h2>
+                        <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px;">Distributor Ayam Boiler Terpercaya</p>
+                    </div>
+                    
+                    <h3 style="text-align: center; margin-bottom: 20px; color: #0f172a; text-decoration: underline;">${title}</h3>
+                    
+                    <div style="margin-bottom: 30px; display: flex; justify-content: space-between; font-size: 14px;">
+                        <div>
+                            <p style="margin: 5px 0;"><strong>No. Transaksi:</strong> ${data.id}</p>
+                            <p style="margin: 5px 0;"><strong>Tanggal:</strong> ${formatTanggal(data.tanggal)}</p>
+                        </div>
+                        <div style="text-align: right;">
+                            <p style="margin: 5px 0;"><strong>Kepada Yth,</strong></p>
+                            <p style="margin: 5px 0; font-size: 16px; font-weight: bold; color: #059669;">${details.split(': ')[1]}</p>
+                        </div>
+                    </div>
+
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 14px;">
+                        <thead>
+                            <tr style="background-color: #f1f5f9; color: #334155;">
+                                <th style="border: 1px solid #cbd5e1; padding: 12px; text-align: center;">No</th>
+                                <th style="border: 1px solid #cbd5e1; padding: 12px; text-align: left;">Nopol Truk</th>
+                                <th style="border: 1px solid #cbd5e1; padding: 12px; text-align: left;">Nama Sopir</th>
+                                <th style="border: 1px solid #cbd5e1; padding: 12px; text-align: right;">Tonase (Kg)</th>
+                                <th style="border: 1px solid #cbd5e1; padding: 12px; text-align: right;">Harga/Kg</th>
+                                <th style="border: 1px solid #cbd5e1; padding: 12px; text-align: right;">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>${itemsHtml}</tbody>
+                        <tfoot>
+                            <tr style="background-color: #f8fafc;">
+                                <td colspan="3" style="border: 1px solid #cbd5e1; padding: 12px; text-align: right; font-weight: bold;">TOTAL KESELURUHAN</td>
+                                <td style="border: 1px solid #cbd5e1; padding: 12px; text-align: right; font-weight: bold; color: #059669;">${formatKg(data.totalTonase)}</td>
+                                <td></td>
+                                <td style="border: 1px solid #cbd5e1; padding: 12px; text-align: right; font-weight: bold; font-size: 16px; color: #0f172a;">${formatRp(totalVal)}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                    
+                    <div style="margin-top: 50px; display: flex; justify-content: flex-end; text-align: center; font-size: 14px;">
+                        <div>
+                            <p style="margin-bottom: 70px;">Hormat Kami,</p>
+                            <p style="text-decoration: underline; font-weight: bold;">Manajemen Atmajaya</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            showToast('Menyiapkan file PDF...', 'info');
+            
+            const opt = {
+                margin:       [10, 10, 10, 10], // top, left, bottom, right
+                filename:     `Invoice_${data.id}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, logging: false },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+            
+            // Wait slightly for DOM to fully update before rendering canvas
+            setTimeout(() => {
+                html2pdf().set(opt).from(container).save().then(() => {
+                    showToast('PDF Berhasil Diunduh', 'success');
+                }).catch(err => {
+                    console.error("PDF Error:", err);
+                    showToast('Gagal membuat PDF', 'danger');
+                });
+            }, 600);
+        }
+
+        function sendWA(type, id) {
+            let data, title;
+            if (type === 'beli' || type === 'hutang') {
+                data = purchasesData.find(p => p.id === id);
+                title = 'INVOICE PEMBELIAN';
+            } else {
+                data = salesData.find(s => s.id === id);
+                title = 'INVOICE PENJUALAN';
+            }
+
+            if (!data) return showToast('Data tidak ditemukan', 'danger');
+
+            let totalVal = type === 'beli' || type === 'hutang' ? data.totalBeli : data.totalJual;
+            let targetName = type === 'beli' || type === 'hutang' ? data.pemasok : data.konsumen;
+
+            let text = `*ATMAJAYA BHARATA UNGGAS*\n`;
+            text += `*${title}*\n\n`;
+            text += `No. Transaksi: ${data.id}\n`;
+            text += `Tanggal: ${formatTanggal(data.tanggal)}\n`;
+            text += `${type === 'beli' || type === 'hutang' ? 'Pemasok' : 'Kepada Yth'}: *${targetName}*\n`;
+            text += `--------------------------------\n`;
+            text += `Total Pengiriman: *${formatKg(data.totalTonase)}*\n`;
+            text += `Total Tagihan: *${formatRp(totalVal)}*\n`;
+            text += `--------------------------------\n\n`;
+            text += `Mohon segera diproses. Terima kasih atas kerjasamanya.`;
+
+            const encodedText = encodeURIComponent(text);
+            window.open(`https://wa.me/?text=${encodedText}`, '_blank');
+        }
+
+        // Initialize App UI based on Session Status (always starts at login for this stateless demo)
+        document.addEventListener('DOMContentLoaded', () => {
+            // Ensure we start on the login screen
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('appScreen').classList.add('hidden');
+        });
+
+    </script>
+</body>
+</html>
